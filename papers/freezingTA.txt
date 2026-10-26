@@ -1,0 +1,16 @@
+@InProceedings{CLM2018FSN,
+author="Chalk, Cameron
+and Luchsinger, Austin
+and Martinez, Eric
+and Schweller, Robert
+and Winslow, Andrew
+and Wylie, Tim",
+editor="Doty, David
+and Dietz, Hendrik",
+title="Freezing Simulates Non-freezing Tile Automata",
+booktitle="DNA Computing and Molecular Programming",
+year="2018",
+publisher="Springer International Publishing",
+pages="155--172",
+isbn="978-3-030-00030-1"
+}

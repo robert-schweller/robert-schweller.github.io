@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+
+<html lang="en-us" xml:lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>CSCI 3333</title>
+<meta content=""/>
+<link href="course.css" rel="stylesheet" type="text/css"/>
+</head>
+<body>
+<div id="header">
+                CSCI 3333<br/>
+                Algorithms and Data Structures
+            </div>
+<!--<div id="content">-->
+<!-------------------------------------------------->
+<a name="courseinfo"><h2>Course Information</h2></a>
+<div class="infosection">
+<table align="center" cellpadding="5">
+<tr>
+<td class="leftc" valign="top">Instructor:</td>
+<td>
+                        Robbie Schweller <br/>
+                        EIEAB 3.220 <br/>
+                        956-665-2667 <br/>
+                        robert.schweller@utrgv.edu <br/>
+                        Office hours: M: 8:00 am-12:00pm, W: 8:00am-9:15 pm, and by appointment.
+                    </td>
+</tr>
+<!--<tr>
+                    <td valign="top" class="leftc">Teaching <br/>Assistants:</td>
+                    <td>
+                    </td>
+                </tr>-->
+<tr>
+<td class="leftc" valign="top">Schedule: </td>
+<td> EIEAB 2.209, TR 9:30 am - 10:45 am
+</td>
+</tr>
+<tr>
+<td class="leftc" valign="top">Books:</td><td>	Main: "Data Structures and Algorithm Analysis in C++", 4th edition by Mark A. Weiss.
+                    												Recommended: "Introduction to Algorithms", any edition, by Cormen, Leiserson, Rivest, Stein. </td>
+</tr>
+<!--<tr>
+                    <td valign="top" class="leftc"></td><td>Building Blocks for Theoretical Computer Science (v1.3). Fleck, M., 2013. <br/> URL: <a href="http://mfleck.cs.illinois.edu/building-blocks/" target="_blank">http://mfleck.cs.illinois.edu/building-blocks/</a></td>
+                </tr>-->
+<!--<tr>
+                    <td valign="top" class="leftc">(optional)</td><td>How to Prove it: A Structured Approach. Velleman, 2nd edition, 2006.</li>
+                <tr>-->
+
+</table>
+</div>
+<!--------------------------------------------------------------->
+<a name="schedule"><h2>Schedule / Topics</h2></a>
+<div class="section">
+<table align="center" border="0px" cellpadding="5" cellspacing="0" class="tableborder">
+<tr class="tableheader">
+<td>Week</td>
+<td>T</td>
+<td>R</td>
+<td>Homework</td>
+</tr>
+<!-- Sorting and Searching -->
+<tr style="background-color:#f0f0f0; font-weight:bold; text-align:center;">
+<td colspan="4">Sorting and Searching</td>
+</tr>
+<tr>
+<td>8/24</td>
+<td>No class</td>
+<td>
+            Algorithm Analysis
+            <br>Heap Sort vs. Selection Sort
+            <br>Read: Chapters 1 and 2.
+            <br> <a href="./notes/sortTestf26.cpp">sortTest.cpp</a>
+
+</td>
+<td>
+<a href="./hwk0.txt"> hw0 (due 8/28)</a>
+</td>
+</tr>
+<tr>
+<td>8/31</td>
+<td>Binary Search, QuickSort, MergeSort
+            <br> <a href="./notes/sortFun26.cpp">sortFun.cpp</a>
+</td>
+<td>Asymptotic Notation
+            <br>Read: 7.6, 7.7, 7.8 </td>
+<td>
+<a href="./hwTT1.pdf">hwTT1 (due 9/6)</a>
+</td>
+</tr>
+<tr>
+<td>9/7</td>
+<td>Comparison Based Sorting: </br>
+            Upper and Lower Bounds
+            <br>Read: 7.6, 7.7, 7.8
+</td>
+<td>Bounded-Universe Sorting: Counting Sort and Radix Sort
+            <br>Read: Section 7.11
+<a href="./notes/lecBUS-counting.pdf">CountingSort.pdf</a>
+<a href="./notes/lecBUS-radix.pdf">RadixSort.pdf</a>
+</td>
+<td>
+<a href="./hwTT2.pdf">hwTT2 (due 9/13)</a>
+</td>
+</tr>
+<!-- Data Structures -->
+<tr style="background-color:#f0f0f0; font-weight:bold; text-align:center;">
+<td colspan="4">Data Structures</td>
+</tr>
+<tr>
+<td>9/14</td>
+<td>Binary Search Trees</td>
+<td>Binary Search Trees, AVL Trees
+            <br>Reading: 4.1-4.3, 4.4, 12.4.2 </br>
+            <a href="./notes/bstF26/bst.h"> bst.h </a></br>
+            <a href="./notes/bstF26/driver.cpp"> driver.cpp </a>
+<td>
+	<a href="./hwLL/hwLLmergeSort.htm"> hwLLmergeSort (due 9/20) </a>
+</td>
+</tr>
+<tr>
+<td>9/21</td>
+<td>AVL Trees
+<br><a href="./notes/avlRotations.pdf"> avlRotations.pdf</a></td>
+<td>Exam 1</td>
+<td>
+	<a href="./hwEBT.pdf"> hwEBT (due 9/27)</a>
+</td>
+
+</tr>
+<tr>
+<td>9/28</td>
+<td>AVL trees<br>
+	<a href="./notes/avlF26/avl.h"> avl.h </a><br>
+	<a href="./notes/avlF26/bst.h"> bst.h </a><br>
+	<a href="./notes/avlF26/driver.cpp"> driver.cpp </a><br>
+<td>Tries <br>
+<a href="./notes/lecTRIE-slides1.pdf"> trieSlides1.pdf</a><br>
+<a href="https://en.wikipedia.org/wiki/Trie"> wikipedia: Trie</a><br>
+<a href="https://faculty.utrgv.edu/robert.schweller/CS3333/hwAC3/words2.txt"> words2.txt</a><br>
+<a href="./notes/trieF26/trie.h"> trie.h </a><br>
+<a href="./notes/trieF26/driver.cpp"> driver.cpp </a>
+</td>
+<td>
+	<a href="./hwACx.pdf"> hwAC.pdf (due 10/4)</a><br>
+	Exam 1 Corrections: in-person
+</td>
+</tr>
+<tr>
+<td>10/5</td>
+<td>Heaps
+<br><a href="./notes/lecHEAP-slides.pdf"> lecHEAP-slides.pdf </a>
+<br>Reading: 6.1-6.4
+</td>
+<td>Heaps <br>
+	<a href="./notes/heapF26/minHeap.h"> minHeap.h </a> <br>
+	<a href="./notes/heapF26/driver.cpp"> driver.cpp </a>
+<br>        Reading: Chapter 5 </td>
+<td>
+		<a href="./hwAC2.pdf"> hwAC2 (due 10/11) </a>
+</td>
+</tr>
+<!-- Graph Algorithms -->
+<tr style="background-color:#f0f0f0; font-weight:bold; text-align:center;">
+<td colspan="4">Graph Algorithms
+</td>
+</tr>
+<tr>
+<td>10/12</td>
+<td>Hash Tables, Maps
+<br><a href="https://en.cppreference.com/w/cpp/container/unordered_map.html"> unordered_map </a>
+<br><a href="https://en.cppreference.com/w/cpp/container/map.html"> map </a><br>
+	<a href="./notes/mapDemoF26.cpp"> mapDemo.cpp </a>
+	<br>Reading: 9.1-9.3</td>
+<td>Graphs, Graph Searching, BFS
+<br><a href="./notes/BFS.pdf"> BFS.pdf</a><br>
+	<a href="./notes/directedGraphF26/directedGraph.h"> directedGraph.h </a><br>
+	<a href="./notes/directedGraphF26/driver.cpp"> driver.cpp </a>
+</td>
+<td>
+		<a href="./hwPQ.pdf"> hwPQ (due 10/18) </a>
+</td>
+</tr>
+<tr>
+<td>10/19</td>
+<td>Shortest Paths: Dijkstra</td>
+<td>Shortest Paths: Dijkstra</td>
+<td>
+		<a href="./hwMZ1.pdf"> hwMZ1 (due 10/25)</a>
+</td>
+</tr>
+<tr>
+<td>10/26</td>
+<td>Shortest Paths: Bellman-Ford</td>
+<td>Network Flows, Perfect Matching, Edmonds-Karp
+<br><a href="./notes/lecFLOW-slides.pdf"> lecFLOW.pdf</a>
+            Reading: 9.4
+</td>
+<td>
+			<a href="./hwMZ2.pdf"> hwMZ2 (due 11/1)</a>
+</td>
+</tr>
+<tr>
+<td>11/2</td>
+<td>Network Flows, Perfect Matching, Edmonds-Karp
+<br><a href="./notes/lecFLOW-slides.pdf"> lecFLOW.pdf</a>
+            <br>Reading: 9.4
+        </td>
+<td>Exam 2</td>
+<td>
+			<a href="./hwTILE.pdf"> hwTILE (due 11/8)</a>
+</td>
+</tr>
+<!-- Algorithm Design -->
+<tr style="background-color:#f0f0f0; font-weight:bold; text-align:center;">
+<td colspan="4">Algorithm Design</td>
+</tr>
+<tr>
+<td>11/9</td>
+<td>Divide and Conquer Algorithms
+            <br>Master Theorem
+            <br>Reading: Chapter 10.2
+<a href="https://en.wikipedia.org/wiki/Karatsuba_algorithm"> Karatsuba algorithm </a>
+</td>
+<td>Divide and Conquer Algorithms
+            <br>Reading: Chapter 10.2
+<a href="https://en.wikipedia.org/wiki/Strassen_algorithm"> Strassen algorithm </a>
+<a href="https://en.wikipedia.org/wiki/Median_of_medians"> Linear Time Selection </a>
+<a href="https://arxiv.org/pdf/cs/0101011"> Master Theorem - Multiple Size Divide and Conquer </a>
+</td>
+<td></td>
+</tr>
+<tr>
+<td>11/16</td>
+<td> Divide and Conquer Algorithms
+<br><a href="https://arxiv.org/pdf/cs/0101011"> Master Theorem - Multiple Size Divide and Conquer </a>
+<br><a href="https://en.wikipedia.org/wiki/Median_of_medians"> Linear Time Selection </a>
+</td>
+<td>Dynamic Programming:  Longest Common Subsequence
+	<br>Reading: 10.3 </td>
+<td></td>
+</tr>
+<tr>
+<td>11/23</td>
+<td>Dynamic Programming:  Matrix Chains</td>
+<td> Thanksgiving
+</td>
+<td></td>
+</tr>
+<!-- Complexity -->
+<tr style="background-color:#f0f0f0; font-weight:bold; text-align:center;">
+<td colspan="4">Complexity</td>
+<tr>
+<td>11/30</td>
+<td>NP-completeness
+	<br>P,NP,NP-hard,NP-complete, polynomial-time reductions
+	3-SAT, k-clique</td>
+<td>Study Day</td>
+<td></td>
+</tr>
+<tr>
+<td>12/7</td>
+<td>
+<td>Final Exam:
+            <br/>12/10, 8:00am-9:45
+<td></td>
+</td></tr>
+</tr></table></div></body></html>

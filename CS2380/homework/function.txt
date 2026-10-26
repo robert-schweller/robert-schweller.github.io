@@ -1,0 +1,61 @@
+
+
+#include <iostream>
+#include <string>
+using namespace std;
+
+
+
+/* #1: Write a function IsOdd that takes as input an integer and returns true if the integer is odd, and false if it's even.
+HINT: Odd numbers are not divisible to 2. Therefore, the remainder
+after dividing an odd number by 2 should be 1.
+Hint: % is used for the modulus operation. n%m gives you the remainder after dividing n by m.
+for example 7%2 = 1 because 7 = 2 *3 + 1;
+*/
+
+
+
+
+
+
+
+/* #2: Write a function printOdd that takes as input an array and a start and end index, and prints all the odd values within that range.
+*/
+
+
+
+
+
+
+
+// #3: Write the function called sumOdds that takes an array, a start and end index, and returns the sum of all odd numbers within the given range.
+
+//****************To Do********************
+int sumOdds(int array[], int start, int end){
+
+
+}
+
+
+// #4: Write a function isPrime that takes as input a positive integer and returns true if the given integer is prime, and false if not.
+
+
+
+int main()
+{
+	/* The output of this section should be
+	The odd numbers are : 55, 7, 11
+	*/
+	int A[5] = { 2, 55, 7, 44, 11 };
+	cout << "The output should be 55,7,11, your output is ";
+	printOdd(A, 0, 4);
+
+	//Testing sumOdds
+	int B[13] = {20, 3, 41, 7, 8, 10, 12, 23, 200, 2, 9, 10, 91}; 
+	cout << "The summation of odd numbers in the given interval is 80, your answer is "<<sumOdds(B, 2, 10) << endl;
+
+
+	//Write some test cases to test your isPrime function.
+
+	return 0;
+}

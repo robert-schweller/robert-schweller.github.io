@@ -1,0 +1,52 @@
+CSCI 2380
+ 
+Hand in:
+Turn in the following files to brightspace:
+-Your .cpp solution
+-A file with your analysis of how many steps your algorithm will take to guess a number from 1 to 1,000,000.
+						
+HiLo Guessing Game
+ 
+This assignment utilizes:
+- random numbers
+- loops
+- conditional statements
+- basic I/O
+- binary search
+ 
+
+In the first HiLow assignment, the program created the random number and the user tried to guess it.  For this assignment, we swap roles:  The program will guess the user’s secret number.
+
+Write a program to play the Hi-Lo guessing game.  In particular, your program should:
+•	Ask the user to enter a positive integer (we will call this number n).
+•	Ask the user to write down a number of their choice between 1 and n with pencil on a sheet of paper.
+•	Next, the program should guess a number.  If incorrect, the user must tell the program if the guess is “too high” or “too low”, and then the program should guess again, repeating this process until the program correctly guesses the user’s number.
+•	State the total number of guesses the program took to get the answer.
+•	For n = 100, make sure your program will never take more than 10 guesses to get the correct answer.
+•	For n = 1,000,000 , analyze the maximum possible number of guesses your program will take to get the correct answer.  Explain/justify your answer.
+Here is a sample run where the text prefixed with "(user)" is the user entered data:
+
+Let’s play a Number Guessing Game!  What is the highest possible value of number you might pick? (Choose n)
+(user) 100
+    
+Cool, you picked n = 100.  Now please think of a number from 1 to 100 and write it down (on paper so you don’t cheat!), then press enter and we’ll play.
+
+Is your number 40?
+(user) Too low
+
+Is your number 90?
+(user) Too high
+    
+Is your number 60?
+(user) Too high
+
+Is your number 50?
+(user) Too low
+
+Is your number 55?
+(user) Too low
+
+Is your number 56?
+(user) Yes
+
+Awesome, I got the answer in 6 guesses.  I’m a super smart program.

@@ -1,0 +1,45 @@
+CSCI 2380 homework:
+
+Create a new class called Calculator.  A calculator should be able to add, subtract, multiply, divide and clear.  Test your calculator by writing a main program incorporating the test code below:
+
+
+int main()
+{
+	Calculator mycalc;
+	
+	mycalc.clear();
+	mycalc.add(4.52);
+	mycalc.add(3.789);
+	mycalc.divide(2.6);
+	mycalc.multiply(3.12);
+	mycalc.subtract(2.678);
+	cout << mycalc.display() << endl;       // prints out "7.2928"
+	mycalc.clear();
+	mycalc.add(5.0);
+	cout << mycalc.display() << endl;       // prints out "5"
+
+	// add a constructor
+	Calculator calc1;
+	cout << calc1.display() << endl;  //prints out 0
+
+	// add a parameterized constructor
+	Calculator calc2(5);
+	cout << calc2.display() << endl; //prints out 5
+
+	//Optional Challenege #1: Define calculator addition (overload the '+' operator)
+	Calculator calc3(7);
+	calc1 = calc2 + calc3;
+	cout << calc1.display() << endl;  //prints out 12
+
+	//Optional Challenge #2: Create an 'undo' method for the calculator
+	mycalc.undo();
+	mycalc.undo();
+	cout << mycalc.display()<< endl;  //prints out 7.2928
+
+	//Optional Challenge #3: Create a 'redo' method for the calculator
+	mycalc.redo();
+	mycalc.redo();
+	cout << mycalc.display()<< endl;  //prints out 5
+
+	return 0;
+}
