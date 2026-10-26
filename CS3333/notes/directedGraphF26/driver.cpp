@@ -26,6 +26,10 @@ int main()
 	G.addBasicEdge("E", "G");
 	G.addBasicEdge("F", "G");
 
+	cout << "A to F: " << G.shortestPath("A", "F") << endl;
+	cout << "B to D: " << G.shortestPath("B", "D") << endl;
+	cout << "F to A: " << G.shortestPath("F", "A") << endl;
+	cout << "A to G: " << G.shortestPath("A", "G") << endl;
 
 	return 0;
 }
