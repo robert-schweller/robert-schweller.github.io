@@ -119,6 +119,11 @@ public:
 			m->next = nullptr;
 			tail = nullptr;
 			head = nullptr;
+
+			//update numItems (forgot this last time)
+			left.numItems = (numItems + 1) / 2;
+			right.numItems = numItems / 2;
+			numItems = 0;
 		}
 
 
