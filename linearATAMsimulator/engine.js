@@ -1,3 +1,4 @@
+import {NEW_KINDS,verifiedPlan,planSummary} from './constructions.js?v=2';
 // Linear Assembly Lab — model, exact moments, and reproducible sampling.
 // Length includes the seed. Only successful attachments increment length.
 export const INERT = '⊥';
@@ -84,13 +85,26 @@ export function normalizeSystem(input) {
       pairSet.set(JSON.stringify(p),p);
     }
   }
-  const result={version:1,model,seed,tiles,compatibility:[...pairSet.values()]};
+  const result={version:NEW_KINDS.includes(input.construction?.kind)?2:1,model,seed,tiles,compatibility:[...pairSet.values()]};
   if(input.construction?.kind==='positive-ternary') result.construction={kind:'positive-ternary',target:String(input.construction.target)};
+  if(NEW_KINDS.includes(input.construction?.kind)){
+    const c=input.construction;result.construction={kind:c.kind,target:String(c.target),base:String(c.base??'auto')};
+    if(c.kind!=='two-pad-mean')Object.assign(result.construction,{epsilon:String(c.epsilon??'0.25'),delta:String(c.delta??'0.05'),blocks:String(c.blocks??'auto')});
+  }
+  if(input.recipeOnly){
+    if(!result.construction||!NEW_KINDS.includes(result.construction.kind)||tiles.length)throw Error('A compact recipe needs supported construction metadata and no literal tile rules.');
+    result.recipeOnly=true;
+  }
   return result;
 }
 export function compileSystem(system) {
   const s=normalizeSystem(system), index=new Map();
-  if(s.construction && !validConstruction(s)) delete s.construction;
+  const generated=verifiedPlan(s);
+  if(s.recipeOnly){
+    if(!generated)throw Error('The compact construction recipe is invalid.');
+    return {system:s,virtual:true,generated,states:[],terminals:[],haltable:true,nonhaltingStates:[],charged:String(generated.cost),distinct:String(generated.cost),choices:()=>({options:[],total:0})};
+  }
+  if(s.construction && !generated && !validConstruction(s)) delete s.construction;
   function push(key,i) { if(!index.has(key)) index.set(key,[]); index.get(key).push(i); }
   s.tiles.forEach((t,i)=> {
     if(s.model==='two') t.west.split('|').forEach((g,p)=>{if(g!==INERT)push(p+':'+g,i);});
@@ -122,7 +136,7 @@ export function compileSystem(system) {
   const haltable=states.every(x=>reaches.has(x));
   const seedWest=s.model==='two'?'⊥|⊥':'⊥';
   const distinct=new Set(s.tiles.map(t=>JSON.stringify([t.west,t.east])));distinct.add(JSON.stringify([seedWest,s.seed]));
-  return {system:s,states,terminals,haltable,nonhaltingStates:states.filter(x=>!reaches.has(x)),choices,charged:1+s.tiles.reduce((n,t)=>n+t.multiplicity,0),distinct:distinct.size};
+  return {system:s,generated,virtual:false,states,terminals,haltable,nonhaltingStates:states.filter(x=>!reaches.has(x)),choices,charged:1+s.tiles.reduce((n,t)=>n+t.multiplicity,0),distinct:distinct.size};
 }
 export const gcd=(a,b)=>{a=a<0n?-a:a;b=b<0n?-b:b;while(b){[a,b]=[b,a%b];}return a;};
 export function frac(a,b=1n) {a=BigInt(a);b=BigInt(b);if(b===0n)throw new Error('Zero denominator.');if(b<0n){a=-a;b=-b;}const g=gcd(a,b);return {n:a/g,d:b/g};}
@@ -184,8 +198,12 @@ function validConstruction(s) {
     return signature(s)===signature(expected);
   } catch{return false;}
 }
-export function moments(compiled) {return validConstruction(compiled.system)?ternaryMoments(compiled.system.construction.target):genericMoments(compiled);}
+export function moments(compiled) {
+  if(compiled.generated)return {status:'finite',mean:frac(compiled.generated.N),variance:frac(compiled.generated.variance),method:'exact-blocks'};
+  return validConstruction(compiled.system)?ternaryMoments(compiled.system.construction.target):genericMoments(compiled);
+}
 export function distribution(compiled,maxLength=2000) {
+  if(compiled.virtual)throw Error('A compact recipe has no materialized transition chain.');
   if(!Number.isInteger(maxLength)||maxLength<1||maxLength>50000)throw new Error('Distribution limit must be from 1 to 50,000.');
   const states=compiled.states,ids=new Map(states.map((x,i)=>[x,i]));
   const transitions=states.map(x=>{
@@ -219,6 +237,7 @@ export function choose(options,rng) {
   throw new Error('Invalid sampling weights.');
 }
 export function simulate(compiled,rng,cap=100000,keep=0,budget=Infinity) {
+  if(compiled.virtual)throw Error('Literal simulation is unavailable for compact recipes.');
   let state=compiled.system.seed,length=1,trace=[];
   while(length<=cap&&length-1<budget) {
     const i=choose(compiled.choices(state),rng);
@@ -231,7 +250,11 @@ export function simulate(compiled,rng,cap=100000,keep=0,budget=Infinity) {
 export function serializedAnalysis(compiled) {
   const m=moments(compiled);
   const result={status:m.status,method:m.method,reason:m.reason,mean:m.mean?fractionString(m.mean):null,variance:m.variance?fractionString(m.variance):null,meanNumber:m.mean?fractionNumber(m.mean):null,varianceNumber:m.variance?fractionNumber(m.variance):null,charged:compiled.charged,distinct:compiled.distinct,states:compiled.states.length,terminals:compiled.terminals,haltable:compiled.haltable,nonhaltingStates:compiled.nonhaltingStates,stateMeans:m.stateMeans||{},digits:m.digits};
-  if(m.status==='finite'&&result.meanNumber<=25000&&compiled.states.length<=128) {
+  result.virtual=!!compiled.virtual;
+  if(compiled.generated)result.construction=planSummary(compiled.generated);
+  const edgeCount=compiled.states.reduce((sum,x)=>sum+compiled.choices(x).options.length,0);
+  const horizon=Math.min(20000,Math.max(80,Math.ceil(result.meanNumber*12)));
+  if(!compiled.virtual&&m.status==='finite'&&result.meanNumber<=25000&&compiled.states.length<=2048&&edgeCount*horizon<=20000000) {
     result.distribution=distribution(compiled,Math.min(20000,Math.max(80,Math.ceil(result.meanNumber*12))));
   }
   return result;

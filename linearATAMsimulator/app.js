@@ -1,12 +1,13 @@
-import {generateSystem,normalizeSystem,compileSystem,makeRng,choose,parseTarget,positiveTernary} from './engine.js';
+import {generateSystem,normalizeSystem,compileSystem,makeRng,choose,parseTarget,positiveTernary} from './engine.js?v=2';
+import {planSummary,NEW_KINDS} from './constructions.js?v=2';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icons={book:'M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-3-2H4z M22 4h-6a3 3 0 0 0-3 3v14a4 4 0 0 1 3-2h6z',upload:'M12 16V3m-5 5 5-5 5 5 M4 15v6h16v-6',download:'M12 3v13m-5-5 5 5 5-5 M4 16v5h16v-5',flask:'M9 3h6m-5 0v7L4 20q-1 2 2 2h12q3 0 2-2l-6-10V3 M7 15h10',sliders:'M4 6h7m6 0h3M4 18h3m6 0h7 M11 3v6h6V3z M7 15v6h6v-6z',play:'m8 4 13 8-13 8z',pause:'M8 4v16M16 4v16',spark:'m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z',edit:'m15 4 5 5M4 20l5-1L21 7l-4-4L5 15z',tiles:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',activity:'M2 12h5l3-8 4 16 3-8h5',chart:'M3 3v18h18M7 17v-5M12 17V6M17 17v-8',list:'M8 6h13M8 12h13M8 18h13M3 6h.1M3 12h.1M3 18h.1',info:'M12 11v6m0-10h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',reset:'M3 10a9 9 0 1 1 1 8M3 4v6h6',shuffle:'M3 5h3c5 0 7 14 12 14h3M17 15l4 4-4 4M3 19h3c2 0 4-3 5-6m3-4c1-2 3-4 4-4h3M17 1l4 4-4 4',plus:'M12 4v16M4 12h16'};
 const icon=name=>'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(icons[name]||icons.info)+'"/></svg>';
 const iconSpan=name=>'<span class="icon">'+icon(name)+'</span>';
 document.querySelectorAll('[data-icon]').forEach(e=>e.innerHTML=icon(e.dataset.icon));
-const names={one:'One-pad',two:'Two-pad OR',flexible:'Flexible glues'},roles={seed:'Seed',path:'Initial path',advance:'Advance',resetA:'Reset to A',resetB:'Reset to B',custom:'Custom'};
-let system,compiled,analysis=null,batch=null,analysisWorker=null,batchWorker=null,sourceMode='generate',view='graphical',tileLimit=100,playTimer=null,sample=null,sampleCounter=0,windowStart=0,autoFollow=true,toastTimer=null,generation=0;
+const names={one:'One-pad',two:'Two-pad OR',flexible:'Flexible glues'},roles={seed:'Seed',path:'Initial path',advance:'Advance',resetA:'Reset',resetB:'Reset / pool',custom:'Custom'};
+let system,compiled,analysis=null,batch=null,analysisWorker=null,batchWorker=null,sourceMode='generate',view='graphical',tileLimit=100,playTimer=null,sample=null,sampleCounter=0,windowStart=0,autoFollow=true,toastTimer=null,generation=0,constructionWorker=null;
 const count=n=>n.toLocaleString('en-US');
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function logInt(s){s=String(s).replace(/^[-+]/,'');if(/^0+$/.test(s))return -Infinity;const n=s.slice(0,15);return Math.log10(Number(n))+(s.length-n.length);}
@@ -19,50 +20,106 @@ function formatSD(){if(!analysis?.variance)return '—';const log=logFraction(an
 function save(){try{localStorage.setItem('linear-assembly-lab-v1',JSON.stringify({system,sourceMode,target:$('target').value,seed:$('rngSeed').value,trials:$('trials').value,cap:$('stepCap').value,epsilon:$('epsilon').value}));}catch{}}
 function source(mode){sourceMode=mode;$('generatePanel').hidden=mode!=='generate';$('customPanel').hidden=mode!=='custom';['generate','custom'].forEach(x=>{const e=$(x+'Mode');e.classList.toggle('active',x===mode);e.setAttribute('aria-pressed',String(x===mode));});save();}
 function tab(name){document.querySelectorAll('[data-tab]').forEach(e=>{const on=e.dataset.tab===name;e.classList.toggle('active',on);e.setAttribute('aria-selected',String(on));});['overview','tiles','analysis'].forEach(x=>$(x+'Panel').hidden=x!==name);if(name==='tiles')renderTiles();if(name==='analysis')renderAnalysis();if(name==='overview')renderSample();}
-function setView(mode){view=mode;$('visualView').hidden=mode!=='graphical';$('numericalView').hidden=mode!=='numerical';['graph','numeric'].forEach(x=>{const on=(x==='graph')===(mode==='graphical');$(x+'View').classList.toggle('active',on);$(x+'View').setAttribute('aria-pressed',String(on));});renderSample();}
-function large(){return analysis?.mean?logFraction(analysis.mean)>5:!!system?.construction&&parseTarget(system.construction.target)>100000n;}
+function setView(mode){if(compiled?.virtual)mode='numerical';view=mode;$('visualView').hidden=mode!=='graphical';$('numericalView').hidden=mode!=='numerical';['graph','numeric'].forEach(x=>{const on=(x==='graph')===(mode==='graphical');$(x+'View').classList.toggle('active',on);$(x+'View').setAttribute('aria-pressed',String(on));});renderSample();}
+function large(){if(compiled?.virtual)return true;return analysis?.mean?logFraction(analysis.mean)>5:!!system?.construction&&parseTarget(system.construction.target)>100000n;}
 function applySystem(next,mode='custom',initial=false){
  const normalized=normalizeSystem(next),c=compileSystem(normalized);
+ constructionWorker?.terminate();constructionWorker=null;generationButton(false);
  pause();cancelBatch(false);analysisWorker?.terminate();generation++;const gen=generation;
  system=c.system;compiled=c;analysis=null;batch=null;tileLimit=100;sampleCounter=0;
  $('targetError').hidden=true;source(mode);$('modelSelect').value=system.model;customHelp();
- if(system.construction&&system.construction.target.length<18)$('target').value=system.construction.target;
- $('costMetric').textContent=count(c.charged);$('distinctMetric').textContent=count(c.distinct);$('tileTabCount').textContent=count(c.distinct);
+ if(system.construction){
+  const m=system.construction;$('target').value=m.target.length<=40?m.target:/^10+$/.test(m.target)?'10^'+(m.target.length-1):m.target;
+  $('constructionKind').value=m.kind;$('constructionBase').value=m.base||'auto';
+  if(m.epsilon){$('constructionEpsilon').value=m.epsilon;$('constructionDelta').value=m.delta;$('constructionBlocks').value=m.blocks;}
+ }
+ constructionFields();
+ for(const id of ['graphView','playSample','stepSample','newSample','resetSample','runBtn','editLibrary','editorBtn','speed'])$(id).disabled=!!c.virtual;
+ $('graphView').title=c.virtual?'This recipe is too large to list; use numerical analysis.':'';
+ $('costMetric').innerHTML=formatExact(String(c.charged));$('distinctMetric').innerHTML=formatExact(String(c.distinct));$('tileTabCount').innerHTML=formatExact(String(c.distinct));
  $('meanMetric').innerHTML=system.construction?formatExact(system.construction.target):'…';$('sdMetric').textContent='…';$('exactBadge').textContent='Exact';$('meanFoot').textContent='including seed';$('sdFoot').textContent='length variability';
- $('systemStatus').innerHTML=c.haltable?'Haltable system<span class="status-check">✓</span>':'Nonhalting paths';
+ $('systemStatus').innerHTML=c.virtual?'Compact recipe':c.haltable?'Haltable system<span class="status-check">✓</span>':'Nonhalting paths';
  $('statusBanner').hidden=c.haltable;$('statusBanner').classList.toggle('error',!c.haltable);
  if(!c.haltable)$('statusBanner').textContent='Some reachable interfaces cannot reach a terminal interface. Termination is not almost sure, and expected terminal length is infinite.';
- $('runHelp').textContent='Reproducible sampling. Runs in your browser.';
- renderDigits();renderTiles();resetSample(true);setView(large()?'numerical':'graphical');
+ $('runHelp').textContent=c.virtual?'Compact recipe: exact analysis only.':'Reproducible sampling. Runs in your browser.';
+ renderDigits();renderConstructionReport();renderTiles();resetSample(true);setView(large()?'numerical':'graphical');
  if(initial&&!large())step(12);
  renderBatch();renderChart();renderAnalysis();warnings();save();
- analysisWorker=new Worker('./worker.js',{type:'module'});
+ analysisWorker=new Worker('./worker.js?v=2',{type:'module'});
  analysisWorker.onmessage=({data})=>{
   if(gen!==generation)return;
   if(data.kind==='error'){toast(data.message);$('meanMetric').textContent='Unavailable';analysisWorker.terminate();analysisWorker=null;return;}
   analysis=data.result;$('meanMetric').innerHTML=analysis.status==='nonhalting'?'∞':formatExact(analysis.mean);$('sdMetric').innerHTML=formatSD();$('exactBadge').textContent=analysis.mean?'Exact':'—';
   $('sdFoot').textContent=analysis.variance===null?'not finite / not computed':analysis.variance==='0'?'deterministic length':'rounded from exact variance';
   if(analysis.status==='limit'){$('statusBanner').hidden=false;$('statusBanner').classList.remove('error');$('statusBanner').textContent=analysis.reason+' Random simulation remains available.';}
-  if(large()&&c.haltable){$('statusBanner').hidden=false;$('statusBanner').classList.remove('error');$('statusBanner').textContent='Large target: exact analytical moments are available without growing the full assembly. Trials still respect their attachment limits.';}
+  if(large()&&c.haltable){$('statusBanner').hidden=false;$('statusBanner').classList.remove('error');$('statusBanner').textContent=c.virtual?'Compact construction: more than 10,000 tile entries. Exact statistics and a portable recipe are available; literal simulation is disabled.':'Large target: exact analytical moments are available without growing the full assembly. Trials still respect their attachment limits.';}
   if(large()&&view==='graphical')setView('numerical');
-  renderSample();renderAnalysis();renderChart();renderBatch();warnings();
+  renderSample();renderAnalysis();renderChart();renderBatch();renderConstructionReport();warnings();
   if(initial&&!large()&&c.haltable)runBatch();
   analysisWorker.terminate();analysisWorker=null;
  };
  analysisWorker.onerror=()=>{toast('The analysis worker could not start. Reload to retry.');$('meanMetric').textContent='Unavailable';};
  analysisWorker.postMessage({action:'analyze',system});
 }
+function constructionFields(){
+ const kind=$('constructionKind').value,hp=kind.startsWith('concentrated');
+ $('baseField').hidden=!(kind==='two-pad-mean'||kind==='concentrated-two');$('concentrationFields').hidden=!hp;
+ $('constructionHelp').textContent=kind==='positive-ternary'?'Positive ternary with indexed glues.':kind==='two-pad-mean'?'Redundant base-b digits with a shared reset pool.':kind==='concentrated-one'?'Independent bijective-binary blocks with private glues.':'Independent shared-pool blocks with private glues.';
+}
+function groupDescription(p){
+ if(p.blocks==='0')return 'Only the inert seed is needed: L = 1.';
+ if(p.fallback)return 'A length-N deterministic line is no more expensive than the selected certified block system.';
+ return p.groups.map(g=>formatExact(g.count)+' block'+(g.count==='1'?'':'s')+' of mean '+formatExact(g.mean)+(g.base?' (b = '+g.base+')':'')).join('; ')+'.';
+}
+function formatBound(value){if(value==='0')return '0';const log=logFraction(value);return log<-4?sci(log):probability(Math.min(1,approx(value)));}
+function renderConstructionReport(){
+ const root=$('constructionReport'),p=compiled?.generated?planSummary(compiled.generated):null;
+ root.hidden=!p?.guarantee;if(root.hidden)return;
+ const g=p.guarantee;root.classList.toggle('pending',!g.certified);
+ let html='<div class="certificate-top"><h3>'+(g.certified?'Certified concentration':'Concentration experiment')+'</h3><span class="certificate-tag '+(g.certified?'':'pending')+'">'+(g.certified?'GUARANTEE PROVED':'BOUND ABOVE REQUESTED δ')+'</span></div>';
+ html+='<p>P(|L − N| &gt; εN) ≤ <strong title="'+esc(g.upper)+'">'+formatBound(g.upper)+'</strong>. Requested δ = '+formatBound(p.delta)+'; ε = '+esc(p.epsilon)+'. '+(g.certified?'':'This sufficient bound does not certify δ; the actual failure probability may be smaller.')+'</p>';
+ html+='<div class="construction-groups">'+groupDescription(p)+' Bound: '+esc(g.method)+'.</div>';
+ const d=analysis?.distribution,N=approx(p.target),eps=approx(p.epsilon),t=eps*N;
+ if(d&&Number.isFinite(N)){
+  const inside=d.pmf.reduce((sum,m,L)=>sum+(Math.abs(L-N)<=t?m:0),0),upper=Math.max(0,Math.min(1,1-inside));
+  html+='<p class="numerical-check">Floating-point Markov prediction: failure '+(d.maxLength>=Math.floor(N+t)?'≈ '+probability(upper):'between ≈ '+probability(Math.max(0,upper-d.tail))+' and '+probability(upper))+'. This numerical prediction is separate from the certificate.</p>';
+ }
+ if(batch&&Number.isFinite(N)){
+  const failed=batch.lengths.reduce((sum,L,i)=>sum+(batch.terminated[i]&&Math.abs(L-N)>t?1:0),0);
+  html+='<p class="numerical-check">Trials at this construction’s ε: '+count(failed)+' observed failures / '+count(batch.started)+' started'+(batch.capped?'; '+count(batch.capped)+' outcomes censored by the attachment limit':' (sample failure '+probability(failed/batch.started)+')')+'.</p>';
+ }
+ root.innerHTML=html;
+}
+function blockEncoding(g){
+ if(g.family==='deterministic'||g.mean==='1')return 'Deterministic path of '+esc(g.mean)+' attachments';
+ if(g.family==='one')return 'Bijective binary: ['+g.digits.join(', ')+']'+(BigInt(g.mean)%2n?' + one forced prefix tile':'');
+ if(!g.coefficients.length)return 'Deterministic path; h = '+g.h;
+ return 'b = '+g.base+', h = '+g.h+'; c = ['+g.coefficients.join(', ')+']; j = ['+g.coefficients.map(c=>c-(2*g.base-1)).join(', ')+']';
+}
+function renderGeneratedAnalysis(){
+ const p=analysis.construction,g=p.guarantee;$('analysisMethod').textContent='EXACT BLOCK MOMENTS';
+ let html='<div class="analysis-inner"><div class="analysis-grid"><div class="analysis-stat"><h3>Expected total length E[L] · exact</h3><div class="exact-number">'+esc(analysis.mean)+'</div></div><div class="analysis-stat"><h3>Variance Var(L) · exact</h3><div class="exact-number">'+esc(analysis.variance)+'</div></div></div>';
+ html+='<div class="analysis-facts"><span>'+names[system.model]+' model</span><span>'+formatExact(p.blocks)+' independent block'+(p.blocks==='1'?'':'s')+'</span><span>Almost-sure termination</span><span>Equimolar · seed included</span></div>';
+ html+='<div class="analysis-section"><h3>Construction</h3><p>'+groupDescription(p)+' Each block has its own glue namespace. The final successful tile exposes the next block’s input interface, so joining blocks adds no tile.</p><p>Exact charged and distinct tile count, including the seed: <span class="exact-number">'+esc(p.charged)+'</span>.</p>';
+ if(p.groups.length)html+='<div class="table-scroll"><table class="block-table"><thead><tr><th>Copies</th><th>Mean attachments</th><th>Types / block</th><th>Encoding</th></tr></thead><tbody>'+p.groups.map(x=>'<tr><td title="'+esc(x.count)+'">'+formatExact(x.count)+'</td><td class="exact-number">'+esc(x.mean)+'</td><td>'+esc(x.cost)+'</td><td><code>'+blockEncoding(x)+'</code></td></tr>').join('')+'</tbody></table></div>';
+ html+='</div><div class="analysis-section"><h3>Exact moments and termination</h3><p>Each random block retries a finite experiment until success, with strictly positive success probability. Every block and the finite concatenation terminate almost surely. Let A be one attempt’s length, p its success probability, and X the total block length. Renewal gives:</p><div class="formula">E[X] = E[A] / p<br>E[X²] = (E[A²] + 2E[X]E[A · 1<sub>reset</sub>]) / p<br>E[L] = 1 + Σᵢ E[Xᵢ] = N<br>Var(L) = Σᵢ Var(Xᵢ)</div><p>Fixed prefix tiles add to the mean and leave the variance unchanged. Attempt moments are evaluated from the displayed digit encodings with arbitrary-precision integer arithmetic. All generated rules are verified before these formulas are used.</p></div>';
+ if(g)html+='<div class="analysis-section"><h3>Probability certificate</h3><p>For ε = '+esc(p.epsilon)+' and requested δ = '+esc(p.delta)+', the rigorous upper bound on P(|L − N| &gt; εN) is:</p><div class="exact-number">'+esc(g.upper)+'</div><p>Method: '+esc(g.method)+'. '+(g.certified?'This proves the requested guarantee.':'This bound exceeds δ. It does not determine whether the actual failure probability exceeds δ.')+'</p><div class="formula">t = εN<br>P(|L − N| &gt; t) ≤ min(1, Var(L) / t²,<br>&nbsp; 2 exp[−t² / (8ΣᵢMᵢ² + 4Mₘₐₓt)])</div><p>The sum and maximum in the exponential bound omit deterministic blocks. Residual means within a random block are at most 2Mᵢ. The exponential term is rounded upward to a dyadic rational using exact integer arithmetic. Automatic mode retains a certified block count and uses a deterministic line when it costs no more; it does not claim the least possible number of blocks or tiles.</p></div>';
+ html+='<div class="analysis-section"><h3>Computational scope</h3><p>'+(p.recipeOnly?'The tile list exceeds the 10,000-entry limit. System JSON stores a compact recipe, not a literal tile list. Importing it into this version reconstructs the exact statistics and certificate.':analysis.distribution?'Floating-point Markov propagation runs through length '+count(analysis.distribution.maxLength)+'. Remaining probability mass: '+probability(analysis.distribution.tail)+'.':'A full distribution is omitted at this scale. Capped literal trials and exact moments remain available.')+' Numerical probability predictions and empirical frequencies are separate from the rigorous certificate. Scientific notation and standard deviations are rounded.</p><p><a class="method-link" href="./CONSTRUCTIONS.md" target="_blank" rel="noopener">Read the construction formulas and certificate proof</a>.</p></div></div>';
+ $('analysisContent').innerHTML=html;
+}
 function renderDigits(){
- const box=$('digitSummary');if(!system.construction){box.innerHTML='<p class="digit-caption">Generate a target to use the positive-ternary construction.</p>';return;}
+ const box=$('digitSummary');
+ if(compiled.generated){const p=planSummary(compiled.generated);box.innerHTML='<div class="summary-label">'+(p.fallback?'Deterministic fallback':p.kind==='two-pad-mean'?'Shared reset pool':'Independent block construction')+'</div><p class="digit-caption">'+groupDescription(p)+'<br>All new tile types have multiplicity 1.</p>';return;}
+ if(!system.construction){box.innerHTML='<p class="digit-caption">Generate a target to inspect its construction.</p>';return;}
  const n=BigInt(system.construction.target),digits=positiveTernary(n-1n);
  if(!digits.length){box.innerHTML='<div class="summary-label">Seed-only construction</div><p class="digit-caption" style="margin-top:10px">The inert seed is terminal. <strong>L = 1</strong> deterministically.</p>';return;}
  box.innerHTML='<div class="summary-label"><span>Positive ternary of N − 1</span><span>'+count(digits.length)+' digit'+(digits.length===1?'':'s')+'</span></div><div class="digit-row">'+digits.slice(0,24).map(x=>'<span class="digit">'+x+'</span>').join('')+(digits.length>24?'<span class="digit">…</span>':'')+'</div><p class="digit-caption">'+(digits.length<=12?'('+digits.join('')+')⁺₃ = <strong>'+count(n-1n)+'</strong>':'Three charged entries per later digit.')+'<br>Unique endpoint glues for every digit.</p>';
 }
 function customHelp(){const m=$('modelSelect').value;$('customModelHelp').textContent=m==='one'?'A tile attaches when its west glue matches the exposed east glue.':m==='two'?'Either corresponding pad may match. A double match counts once.':'Define symmetric compatible label pairs; equality alone does not bind.';}
-function warnings(){const msg=!compiled.haltable?'This system has nonhalting paths. Trials may be capped.':large()?'The expected length exceeds practical graphical size. Use analytical results, or inspect a limited prefix.':analysis?.meanNumber>Number($('stepCap').value)?'The attachment limit is below the expected length. Capped trials will be reported separately.':'';$('runWarning').hidden=!msg;$('runWarning').textContent=msg;}
+function warnings(){const msg=compiled.virtual?'The recipe exceeds the 10,000-entry display limit. Export its specification or choose a smaller system.':!compiled.haltable?'This system has nonhalting paths. Trials may be capped.':large()?'The expected length exceeds practical graphical size. Use analytical results, or inspect a limited prefix.':analysis?.meanNumber>Number($('stepCap').value)?'The attachment limit is below the expected length. Capped trials will be reported separately.':'';$('runWarning').hidden=!msg;$('runWarning').textContent=msg;}
 function resetSample(resetCounter=false){pause();if(resetCounter)sampleCounter=0;sample={rng:makeRng($('rngSeed').value+':explorer:'+sampleCounter),state:system.seed,length:1,trace:[],terminal:compiled.choices(system.seed).total===0,capped:false};windowStart=0;autoFollow=true;$('tileInfo').textContent='Select a tile to inspect its glue labels.';renderSample();}
 function step(n=1){
- if(sample.terminal||sample.capped)return;const cap=Number($('stepCap').value);
+ if(compiled.virtual||sample.terminal||sample.capped)return;const cap=Number($('stepCap').value);
  for(let k=0;k<n;k++){
   if(sample.length-1>=cap){sample.capped=true;break;}
   const i=choose(compiled.choices(sample.state),sample.rng);if(i===null){sample.terminal=true;break;}
@@ -75,9 +132,17 @@ function step(n=1){
  renderSample();
 }
 function pause(){if(playTimer){clearInterval(playTimer);playTimer=null;}if($('playSample'))$('playSample').innerHTML=iconSpan('play')+'Play';}
-function play(){if(playTimer){pause();renderSample();return;}if(sample.terminal||sample.capped)resetSample();const rate=Number($('speed').value);playTimer=setInterval(()=>step(Math.max(1,Math.round(rate/20))),rate<20?1000/rate:50);$('playSample').innerHTML=iconSpan('pause')+'Pause';renderSample();}
+function play(){if(compiled.virtual)return;if(playTimer){pause();renderSample();return;}if(sample.terminal||sample.capped)resetSample();const rate=Number($('speed').value);playTimer=setInterval(()=>step(Math.max(1,Math.round(rate/20))),rate<20?1000/rate:50);$('playSample').innerHTML=iconSpan('pause')+'Pause';renderSample();}
 function renderSample(){
- if(!sample||!compiled)return;const len=sample.length,choices=compiled.choices(sample.state),terminal=sample.terminal,capped=sample.capped;
+ if(!sample||!compiled)return;
+ if(compiled.virtual){
+  const p=planSummary(compiled.generated);$('sampleBadge').textContent='RECIPE';$('sampleBadge').classList.remove('complete');
+  $('assemblySubtitle').textContent='Exact construction statistics without expanding every tile type.';
+  $('currentLength').textContent='—';$('currentGlue').textContent='Not materialized';$('nextOptions').textContent='Numerical analysis only';$('stepSample').disabled=true;
+  $('numericalView').innerHTML='<h3>Compact construction recipe</h3><p>Expected total length</p><div class="numeric-main">'+formatExact(p.target)+'</div><p>The specified construction has '+formatExact(p.charged)+' tile types. Its exact moments and probability certificate are computed from its blocks, without generating the full tile list.</p><div class="numeric-details"><div>Independent blocks<strong>'+formatExact(p.blocks)+'</strong></div><div>Tile entries, including seed<strong>'+formatExact(p.charged)+'</strong></div><div>Export format<strong>System JSON recipe</strong></div></div>';
+  return;
+ }
+ const len=sample.length,choices=compiled.choices(sample.state),terminal=sample.terminal,capped=sample.capped;
  $('sampleBadge').textContent=terminal?'TERMINAL':capped?'CAPPED':playTimer?'GROWING':'PAUSED';$('sampleBadge').classList.toggle('complete',terminal);
  $('assemblySubtitle').textContent=terminal?'Sample '+(sampleCounter+1)+' terminated after '+count(len-1)+' successful attachments.':capped?'Sample capped after '+count(len-1)+' attachments; terminal length is at least '+count(len)+'.':'Watch one possible assembly grow, one tile at a time.';
  $('currentLength').textContent=count(len);$('currentGlue').textContent=sample.state.replaceAll('|',' | ');$('currentGlue').title=sample.state;
@@ -103,6 +168,10 @@ function renderSample(){
 }
 function renderTiles(){
  if(!system)return;
+ if(compiled.virtual){
+  const p=planSummary(compiled.generated);$('tileTable').innerHTML='<tr><td colspan="5" class="recipe-message">This construction contains '+formatExact(p.charged)+' tile types. Export System JSON for the compact recipe, or see Analysis for its block encodings. The full tile list exceeds the browser limit.</td></tr>';
+  $('moreTiles').hidden=true;$('tileLibrarySubtitle').textContent=names[system.model]+' · compact recipe';$('tileLibraryFoot').innerHTML='Exact count: <span class="exact-number">'+esc(p.charged)+'</span> entries, all distinct and equimolar, including the seed.';return;
+ }
  const rows=[{id:'Seed',west:system.model==='two'?'⊥ | ⊥':'⊥',east:system.seed,multiplicity:1,role:'seed'},...system.tiles.slice(0,tileLimit)];
  $('tileTable').innerHTML=rows.map(t=>'<tr><td><div class="tile-cell"><span class="tile-swatch '+(t.role==='seed'?'is-seed':t.role)+'"></span><span>'+esc(t.id)+'</span></div></td><td><code>'+esc(t.west.replaceAll('|',' | '))+'</code></td><td><code>'+esc(t.east.replaceAll('|',' | '))+'</code></td><td>'+count(t.multiplicity)+'</td><td><span class="role-label">'+(roles[t.role]||'Custom')+'</span></td></tr>').join('');
  $('moreTiles').hidden=system.tiles.length<=tileLimit;
@@ -115,6 +184,7 @@ function renderTiles(){
 const probability=p=>p===0?'0':p<.00001?p.toExponential(2):(p*100).toFixed(3)+'%';
 function renderAnalysis(){
  if(!analysis){$('analysisContent').innerHTML='<div class="analysis-inner"><p class="help">Calculating length moments…</p></div>';return;}
+ if(analysis.method==='exact-blocks'){renderGeneratedAnalysis();return;}
  $('analysisMethod').textContent=analysis.method==='exact-ternary'?'INTEGER RECURRENCE':analysis.status==='finite'?'RATIONAL MARKOV CHAIN':'REACHABILITY';
  let html='<div class="analysis-inner"><div class="analysis-grid"><div class="analysis-stat"><h3>Expected total length E[L] · exact</h3><div class="exact-number">'+(analysis.status==='nonhalting'?'∞':esc(analysis.mean||'Not computed'))+'</div></div><div class="analysis-stat"><h3>Variance Var(L) · exact</h3><div class="exact-number">'+esc(analysis.variance||'Not defined / not computed')+'</div></div></div><div class="analysis-facts"><span>'+count(analysis.states)+' reachable interfaces</span><span>'+count(analysis.terminals.length)+' terminal interfaces</span><span>'+(analysis.haltable?'Almost-sure termination':'Nonhalting paths reachable')+'</span><span>'+names[system.model]+' model</span></div>';
  html+='<div class="analysis-section"><h3>Termination</h3><p>'+(analysis.haltable?'Every reachable unfinished interface has a path to a terminal interface. In this finite system, growth terminates almost surely and its expected length is finite.':'At least one reachable interface has no path to a terminal interface. A random run has positive probability of never terminating, so E[L] is infinite.')+'</p><p>Terminal interfaces: <code>'+esc(analysis.terminals.join(', ')||'none')+'</code>.</p>';
@@ -131,13 +201,13 @@ function renderAnalysis(){
  $('analysisContent').innerHTML=html;
 }
 function runBatch(){
- if(batchWorker)return;const trials=Number($('trials').value),cap=Number($('stepCap').value),seed=$('rngSeed').value||'42';save();
+ if(batchWorker||compiled.virtual)return;const trials=Number($('trials').value),cap=Number($('stepCap').value),seed=$('rngSeed').value||'42';save();
  $('runBtn').disabled=true;$('runBtn').innerHTML=iconSpan('activity')+'Running…';$('cancelBtn').hidden=false;$('runProgress').hidden=false;$('runProgress').firstElementChild.style.width='0%';$('runHelp').textContent='Starting '+count(trials)+' trials…';
- batchWorker=new Worker('./worker.js',{type:'module'});const gen=generation;
+ batchWorker=new Worker('./worker.js?v=2',{type:'module'});const gen=generation;
  batchWorker.onmessage=({data})=>{
   if(gen!==generation)return;
   if(data.kind==='progress'){$('runProgress').firstElementChild.style.width=(100*data.completed/data.requested)+'%';$('runHelp').textContent=count(data.completed)+' / '+count(data.requested)+' trials processed';return;}
-  if(data.kind==='batch'){batch=data.result;finishBatch();renderBatch();renderChart();$('runHelp').textContent=count(batch.done)+' terminal · '+count(batch.capped)+' capped'+(batch.unstarted?' · '+count(batch.unstarted)+' unstarted':'');if(batch.budgetReached)toast('Work budget reached. Capped and unstarted trials are reported separately.');return;}
+  if(data.kind==='batch'){batch=data.result;finishBatch();renderBatch();renderChart();renderConstructionReport();$('runHelp').textContent=count(batch.done)+' terminal · '+count(batch.capped)+' capped'+(batch.unstarted?' · '+count(batch.unstarted)+' unstarted':'');if(batch.budgetReached)toast('Work budget reached. Capped and unstarted trials are reported separately.');return;}
   if(data.kind==='error'){finishBatch();toast(data.message);}
  };
  batchWorker.onerror=()=>{finishBatch();toast('The experiment worker could not start. Reload to retry.');};
@@ -147,7 +217,7 @@ function finishBatch(){batchWorker?.terminate();batchWorker=null;$('runBtn').dis
 function cancelBatch(notify=true){if(!batchWorker)return;finishBatch();$('runHelp').textContent='Cancelled. No partial batch is included in the results.';if(notify)toast('Experiment cancelled.');}
 function renderBatch(){
  document.querySelector('.summary-bottom span:last-child').textContent=batch?.capped?'Capped runs contribute their observed length. The mean lower bound applies to these started runs, not to the theoretical expectation.':'Expectation describes the average over many runs, not a target stopping length.';
- const root=$('batchSummary');if(!batch){root.innerHTML='<div class="empty-summary">Run an experiment to compare observed lengths with the theoretical expectation.</div>';return;}
+ const root=$('batchSummary');if(!batch){root.innerHTML='<div class="empty-summary">'+(compiled.virtual?'This compact recipe supports exact analysis. Choose a smaller construction to run literal tile simulations.':'Run an experiment to compare observed lengths with the theoretical expectation.')+'</div>';return;}
  const avg=batch.sum/batch.started,epsilon=Number($('epsilon').value)/100,mean=analysis?.meanNumber;
  const within=Number.isFinite(mean)?batch.lengths.reduce((s,n,i)=>s+(batch.terminated[i]&&Math.abs(n-mean)<=epsilon*mean?1:0),0):null;
  const empirical=within===null?'—':(batch.capped?'≥ ':'')+(within/batch.started*100).toFixed(1)+'%';
@@ -181,7 +251,7 @@ function renderChart(){
  $('chartFoot').textContent='Terminal length, including seed'+(d?' · predicted tail beyond view: '+probability(tail):'')+(batch?.capped?' · bars show fractions of all started trials':'');
 }
 function openEditor(){
- pause();if(system.tiles.length>200){toast('The graphical editor supports 200 rules. Export JSON to edit larger systems.');return;}
+ pause();if(compiled.virtual){toast('A compact recipe cannot be edited as a literal tile list. Change its construction settings instead.');return;}if(system.tiles.length>200){toast('The graphical editor supports 200 rules. Export JSON to edit larger systems.');return;}
  $('editorModel').value=system.model;$('editorSeed').value=system.seed;$('editorRows').innerHTML='';system.tiles.forEach(t=>addEditorRow(t));
  $('compatibilityInput').value=system.compatibility.map(p=>p.join(', ')).join('\n');$('flexibleEditor').hidden=system.model!=='flexible';$('editorError').hidden=true;$('editorDialog').showModal();
 }
@@ -203,7 +273,7 @@ function example(model){
 function saveFile(name,body,type){
  const url=URL.createObjectURL(new Blob([body],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);$('exportMenu').hidden=true;$('exportBtn').setAttribute('aria-expanded','false');
 }
-function exportSystem(){saveFile('linear-assembly-system.json',JSON.stringify(system,null,2),'application/json');toast('System JSON exported.');}
+function exportSystem(){saveFile('linear-assembly-system.json',JSON.stringify(system,null,2),'application/json');toast(compiled.virtual?'Compact construction recipe exported.':'System JSON exported.');}
 function exportTrials(){
  if(!batch){toast('Run an experiment before exporting trial results.');return;}
  const csv=['trial,terminal_length,observed_length,status,random_seed,attachment_limit'];
@@ -214,7 +284,20 @@ function exportAnalysis(){
  if(!analysis){toast('Analysis is still running.');return;}
  saveFile('linear-assembly-analysis.json',JSON.stringify({system,analysis,experiment:batch,notes:{length:'Includes seed; counts successful attachments only.',moments:'mean and variance strings are exact; numerical summaries and probabilities are rounded.',capped:'Observed lengths for capped trials are lower bounds on terminal length.',unstarted:'Unstarted requested trials are excluded from all statistics.'}},null,2),'application/json');
 }
-$('generateBtn').onclick=()=>{try{const s=generateSystem($('target').value);applySystem(s,'generate');tab('overview');toast('Tile set generated with exact expected length.');}catch(e){$('targetError').hidden=false;$('targetError').textContent=e.message;}};
+function generationButton(busy){$('generateBtn').disabled=busy;$('generateBtn').innerHTML=iconSpan('spark')+(busy?'Constructing…':'Generate tile set');}
+$('generateBtn').onclick=()=>{
+ constructionWorker?.terminate();constructionWorker=null;$('targetError').hidden=true;
+ const fail=e=>{generationButton(false);$('targetError').hidden=false;$('targetError').textContent=e.message||e;};
+ const kind=$('constructionKind').value;
+ if(kind==='positive-ternary'){try{applySystem(generateSystem($('target').value),'generate');tab('overview');toast('One-pad expected-length system generated.');}catch(e){fail(e);}return;}
+ generationButton(true);const w=constructionWorker=new Worker('./worker.js?v=2',{type:'module'});
+ w.onmessage=({data})=>{if(w!==constructionWorker)return;w.terminate();constructionWorker=null;generationButton(false);if(data.kind==='error'){fail(data.message);return;}try{applySystem(data.system,'generate');tab('overview');toast(compiled.virtual?'Compact construction and exact analysis ready.':'Construction generated with exact expected length.');}catch(e){fail(e);}};
+ w.onerror=()=>{w.terminate();constructionWorker=null;fail('The construction worker could not start. Reload and try again.');};
+ w.postMessage({action:'generate',target:$('target').value,options:{kind,base:$('constructionBase').value.trim().toLowerCase(),epsilon:$('constructionEpsilon').value,delta:$('constructionDelta').value,blocks:$('constructionBlocks').value.trim().toLowerCase()}});
+};
+$('constructionKind').onchange=constructionFields;
+$('concentrationExample').onclick=()=>{$('target').value='257';$('constructionBlocks').value='32';$('constructionEpsilon').value='0.25';$('constructionDelta').value='0.05';$('epsilon').value='25';$('epsilonValue').textContent='±25%';$('generateBtn').click();};
+$('crestBtn').onclick=()=>{pause();$('crestDialog').showModal();};
 $('target').onkeydown=e=>{if(e.key==='Enter')$('generateBtn').click();};
 $('target').oninput=()=>document.querySelectorAll('[data-target]').forEach(e=>e.classList.toggle('selected',e.dataset.target===$('target').value));
 document.querySelectorAll('[data-target]').forEach(e=>e.onclick=()=>{$('target').value=e.dataset.target;document.querySelectorAll('[data-target]').forEach(x=>x.classList.toggle('selected',x===e));$('generateBtn').click();});
@@ -255,4 +338,4 @@ let resizeTimeout;window.addEventListener('resize',()=>{clearTimeout(resizeTimeo
 let initialSettings=null;try{initialSettings=JSON.parse(localStorage.getItem('linear-assembly-lab-v1')||'null');}catch{}
 let initial=generateSystem('100');
 if(initialSettings?.system){try{initial=normalizeSystem(initialSettings.system);if(initialSettings.target)$('target').value=initialSettings.target;for(const [key,id] of [['seed','rngSeed'],['trials','trials'],['cap','stepCap'],['epsilon','epsilon']])if(initialSettings[key]!==undefined)$(id).value=initialSettings[key];$('epsilonValue').textContent='±'+$('epsilon').value+'%';}catch{initialSettings=null;}}
-applySystem(initial,initialSettings?.sourceMode||'generate',true);
+try{applySystem(initial,initialSettings?.sourceMode||'generate',true);}catch{applySystem(generateSystem('100'),'generate',true);toast('The saved system was invalid; restored the default example.');}
