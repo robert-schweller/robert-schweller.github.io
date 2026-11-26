@@ -1,4 +1,4 @@
-import {NEW_KINDS,verifiedPlan,planSummary} from './constructions.js?v=2';
+import {NEW_KINDS,verifiedPlan,planSummary} from './constructions.js?v=3';
 // Linear Assembly Lab — model, exact moments, and reproducible sampling.
 // Length includes the seed. Only successful attachments increment length.
 export const INERT = '⊥';
@@ -85,10 +85,11 @@ export function normalizeSystem(input) {
       pairSet.set(JSON.stringify(p),p);
     }
   }
-  const result={version:NEW_KINDS.includes(input.construction?.kind)?2:1,model,seed,tiles,compatibility:[...pairSet.values()]};
+  const result={version:NEW_KINDS.includes(input.construction?.kind)?(input.construction.revision??2):1,model,seed,tiles,compatibility:[...pairSet.values()]};
   if(input.construction?.kind==='positive-ternary') result.construction={kind:'positive-ternary',target:String(input.construction.target)};
   if(NEW_KINDS.includes(input.construction?.kind)){
     const c=input.construction;result.construction={kind:c.kind,target:String(c.target),base:String(c.base??'auto')};
+    if(c.revision!==undefined){if(![2,3].includes(c.revision))throw Error('Unsupported construction revision.');result.construction.revision=c.revision;}
     if(c.kind!=='two-pad-mean')Object.assign(result.construction,{epsilon:String(c.epsilon??'0.25'),delta:String(c.delta??'0.05'),blocks:String(c.blocks??'auto')});
   }
   if(input.recipeOnly){
@@ -102,7 +103,7 @@ export function compileSystem(system) {
   const generated=verifiedPlan(s);
   if(s.recipeOnly){
     if(!generated)throw Error('The compact construction recipe is invalid.');
-    return {system:s,virtual:true,generated,states:[],terminals:[],haltable:true,nonhaltingStates:[],charged:String(generated.cost),distinct:String(generated.cost),choices:()=>({options:[],total:0})};
+    return {system:s,virtual:true,generated,states:[],terminals:[],haltable:true,nonhaltingStates:[],charged:String(generated.cost),distinct:String(generated.distinct),choices:()=>({options:[],total:0})};
   }
   if(s.construction && !generated && !validConstruction(s)) delete s.construction;
   function push(key,i) { if(!index.has(key)) index.set(key,[]); index.get(key).push(i); }

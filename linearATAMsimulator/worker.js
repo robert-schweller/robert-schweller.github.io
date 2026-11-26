@@ -1,5 +1,5 @@
-import {generateConstruction} from './constructions.js?v=2';
-import {compileSystem,serializedAnalysis,makeRng,simulate} from './engine.js?v=2';
+import {generateConstruction} from './constructions.js?v=3';
+import {compileSystem,serializedAnalysis,makeRng,simulate} from './engine.js?v=3';
 self.onmessage=({data})=>{
   try {
     if(data.action==='generate'){postMessage({kind:'generated',system:generateConstruction(data.target,data.options)});return;}

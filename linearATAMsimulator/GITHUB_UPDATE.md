@@ -1,25 +1,28 @@
-# Updating the existing GitHub Pages simulator
+# GitHub Pages update — revised concentrated constructions
 
-Unzip `linear-assembly-lab-github-update.zip`. Copy the eight website files into the **same folder as your current simulator's index.html**, preserving the filenames. For example, if the simulator currently lives in a `simulator/` subfolder, update that subfolder rather than your site's unrelated home page.
+Unzip `linear-assembly-lab-efficient-constructions-update.zip` into the folder containing your existing simulator's `index.html`.
 
 | Action | Files |
 | --- | --- |
-| Replace existing files | `index.html`, `styles.css`, `app.js`, `engine.js`, `worker.js` |
-| Add new files | `constructions.js`, `assembly-crest.png`, `CONSTRUCTIONS.md` |
+| Replace | `index.html`, `app.js`, `engine.js`, `worker.js`, `constructions.js`, `CONSTRUCTIONS.md` |
+| Add | `legacy-constructions.js` |
+| Keep existing | `styles.css`, `assembly-crest.png` |
 
-`GITHUB_UPDATE.md` is this instruction sheet and is optional on the website. Keep all eight website files together: the page and module workers load them using relative paths. No npm install or build is required.
+Commit all seven website files together. `GITHUB_UPDATE.md` is this optional instruction sheet. No build step, dependency installation or GitHub Pages settings change is needed. Refresh the page after your existing deployment completes; use a hard refresh if cached content remains.
 
-Use your existing repository's upload/edit workflow to commit all eight website files together. Keep your current GitHub Pages publication branch and folder. Once its deployment completes, refresh the simulator; use a hard refresh if the old page remains cached.
+## Changes
 
-Check the update:
+- Concentrated one-pad mode now uses positive-ternary blocks (revised paper, Lemma 5).
+- Concentrated two-pad mode uses positive-base-b blocks with the shared reset and delay paths (Lemma 6 / Section 4.2). Expected-length two-pad mode uses the same updated block implementation.
+- One-pad multiplicities, charged counts, distinct counts, exact variance and probability certificates are updated. The one-pad certificate uses the sharper maximum residual mean M.
+- Legacy imports, including huge compact recipes, retain their original behavior. Saved generated systems upgrade on reload. Importing an old experiment preserves it; click Generate with the same settings to create the revised version.
+- Your crest, graphics, custom models, exports and numerical output for very large N remain available.
 
-1. The page heading shows the crest; clicking it enlarges the image.
-2. Construction has four choices.
-3. Expected length · two-pad, N=100, base auto gives 12 charged entries and exact variance 9404 in Analysis.
-4. High probability · one-pad, “Try N = 257 with 32 blocks” gives 193 entries, exact variance 1152 and a Markov failure prediction near 5.501%. Its conservative bound exceeds δ=5%; this manual example is labelled an experiment.
-5. In either high-probability mode, N=10000 with automatic blocks, ε=0.25 and δ=0.05 produces a certified system.
-6. High-probability N=10^30 with automatic blocks uses a compact recipe and exact numerical analysis. No impractically long tile list or assembly is expanded.
+## Quick checks
 
-Automatic concentration is conservative and may choose a deterministic line for small N. A manual block count lets you reproduce and explore the manuscript's examples without implying an unproved guarantee. The Analysis panel and CONSTRUCTIONS.md explain the certificate.
+1. Select High probability · one-pad, N=100, blocks=1. Analysis gives mean 100, variance 9006, 13 charged entries and 11 distinct types; the tile library contains multiplicity-two rules.
+2. Try N=257 with 32 blocks. Both revised modes use 161 charged entries instead of 193. The one-pad variance is 1216; two-pad variance is 1152. These manual examples are not certified for δ=0.05 at ε=0.25 by the conservative bound.
+3. With N=10000, blocks=auto, ε=0.25, δ=0.05, one-pad uses 2431 charged entries / 1900 types; two-pad uses 2377 entries / types. Both certify the requested guarantee.
+4. N=10^30 with automatic blocks still gives exact numerical output and a compact JSON recipe. One-pad charged and distinct counts remain separate.
 
-Previously exported literal system JSON files remain supported. Version 2 compact recipes require this updated simulator. Your latest system remains saved in the browser; choose a new construction and click Generate tile set to see the new modes.
+`CONSTRUCTIONS.md` contains the rules, recurrence derivations, conservative certificate and compatibility details.

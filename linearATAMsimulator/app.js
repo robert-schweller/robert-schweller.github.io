@@ -1,5 +1,5 @@
-import {generateSystem,normalizeSystem,compileSystem,makeRng,choose,parseTarget,positiveTernary} from './engine.js?v=2';
-import {planSummary,NEW_KINDS} from './constructions.js?v=2';
+import {generateSystem,normalizeSystem,compileSystem,makeRng,choose,parseTarget,positiveTernary} from './engine.js?v=3';
+import {planSummary,NEW_KINDS} from './constructions.js?v=3';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icons={book:'M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-3-2H4z M22 4h-6a3 3 0 0 0-3 3v14a4 4 0 0 1 3-2h6z',upload:'M12 16V3m-5 5 5-5 5 5 M4 15v6h16v-6',download:'M12 3v13m-5-5 5 5 5-5 M4 16v5h16v-5',flask:'M9 3h6m-5 0v7L4 20q-1 2 2 2h12q3 0 2-2l-6-10V3 M7 15h10',sliders:'M4 6h7m6 0h3M4 18h3m6 0h7 M11 3v6h6V3z M7 15v6h6v-6z',play:'m8 4 13 8-13 8z',pause:'M8 4v16M16 4v16',spark:'m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z',edit:'m15 4 5 5M4 20l5-1L21 7l-4-4L5 15z',tiles:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',activity:'M2 12h5l3-8 4 16 3-8h5',chart:'M3 3v18h18M7 17v-5M12 17V6M17 17v-8',list:'M8 6h13M8 12h13M8 18h13M3 6h.1M3 12h.1M3 18h.1',info:'M12 11v6m0-10h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',reset:'M3 10a9 9 0 1 1 1 8M3 4v6h6',shuffle:'M3 5h3c5 0 7 14 12 14h3M17 15l4 4-4 4M3 19h3c2 0 4-3 5-6m3-4c1-2 3-4 4-4h3M17 1l4 4-4 4',plus:'M12 4v16M4 12h16'};
@@ -45,7 +45,7 @@ function applySystem(next,mode='custom',initial=false){
  renderDigits();renderConstructionReport();renderTiles();resetSample(true);setView(large()?'numerical':'graphical');
  if(initial&&!large())step(12);
  renderBatch();renderChart();renderAnalysis();warnings();save();
- analysisWorker=new Worker('./worker.js?v=2',{type:'module'});
+ analysisWorker=new Worker('./worker.js?v=3',{type:'module'});
  analysisWorker.onmessage=({data})=>{
   if(gen!==generation)return;
   if(data.kind==='error'){toast(data.message);$('meanMetric').textContent='Unavailable';analysisWorker.terminate();analysisWorker=null;return;}
@@ -64,7 +64,7 @@ function applySystem(next,mode='custom',initial=false){
 function constructionFields(){
  const kind=$('constructionKind').value,hp=kind.startsWith('concentrated');
  $('baseField').hidden=!(kind==='two-pad-mean'||kind==='concentrated-two');$('concentrationFields').hidden=!hp;
- $('constructionHelp').textContent=kind==='positive-ternary'?'Positive ternary with indexed glues.':kind==='two-pad-mean'?'Redundant base-b digits with a shared reset pool.':kind==='concentrated-one'?'Independent bijective-binary blocks with private glues.':'Independent shared-pool blocks with private glues.';
+ $('constructionHelp').textContent=kind==='positive-ternary'?'Positive ternary with indexed glues.':kind==='two-pad-mean'?'Positive base-b digits with a shared reset pool.':kind==='concentrated-one'?'Positive-ternary blocks from the revised paper.':'Positive-base-b blocks from the revised paper.';
 }
 function groupDescription(p){
  if(p.blocks==='0')return 'Only the inert seed is needed: L = 1.';
@@ -78,7 +78,7 @@ function renderConstructionReport(){
  const g=p.guarantee;root.classList.toggle('pending',!g.certified);
  let html='<div class="certificate-top"><h3>'+(g.certified?'Certified concentration':'Concentration experiment')+'</h3><span class="certificate-tag '+(g.certified?'':'pending')+'">'+(g.certified?'GUARANTEE PROVED':'BOUND ABOVE REQUESTED δ')+'</span></div>';
  html+='<p>P(|L − N| &gt; εN) ≤ <strong title="'+esc(g.upper)+'">'+formatBound(g.upper)+'</strong>. Requested δ = '+formatBound(p.delta)+'; ε = '+esc(p.epsilon)+'. '+(g.certified?'':'This sufficient bound does not certify δ; the actual failure probability may be smaller.')+'</p>';
- html+='<div class="construction-groups">'+groupDescription(p)+' Bound: '+esc(g.method)+'.</div>';
+ html+='<div class="construction-groups">'+(p.revision===2?'Legacy construction · preserved from an earlier export. ':'Revised positive-digit construction. ')+groupDescription(p)+' Bound: '+esc(g.method)+'.</div>';
  const d=analysis?.distribution,N=approx(p.target),eps=approx(p.epsilon),t=eps*N;
  if(d&&Number.isFinite(N)){
   const inside=d.pmf.reduce((sum,m,L)=>sum+(Math.abs(L-N)<=t?m:0),0),upper=Math.max(0,Math.min(1,1-inside));
@@ -92,24 +92,31 @@ function renderConstructionReport(){
 }
 function blockEncoding(g){
  if(g.family==='deterministic'||g.mean==='1')return 'Deterministic path of '+esc(g.mean)+' attachments';
- if(g.family==='one')return 'Bijective binary: ['+g.digits.join(', ')+']'+(BigInt(g.mean)%2n?' + one forced prefix tile':'');
- if(!g.coefficients.length)return 'Deterministic path; h = '+g.h;
- return 'b = '+g.base+', h = '+g.h+'; c = ['+g.coefficients.join(', ')+']; j = ['+g.coefficients.map(c=>c-(2*g.base-1)).join(', ')+']';
+ if(g.algorithm==='positive-ternary')return 'Positive ternary: ['+g.digits.join(', ')+']';
+ if(g.algorithm==='positive-base')return 'Positive base '+g.base+': ['+g.digits.join(', ')+']';
+ if(g.algorithm==='legacy-binary')return 'Legacy bijective binary: ['+g.digits.join(', ')+']'+(g.odd?' + one forced prefix tile':'');
+ if(!g.coefficients.length)return 'Legacy deterministic path; h = '+g.h;
+ return 'Legacy b = '+g.base+', h = '+g.h+'; c = ['+g.coefficients.join(', ')+']; j = ['+g.coefficients.map(c=>c-(2*g.base-1)).join(', ')+']';
+}
+function blockMomentExplanation(p){
+ if(p.revision===2)return '<p>This imported system retains the earlier binary or redundant-digit block construction. Its exact moments use the original renewal formulas. Regenerate with the same parameters to use the revised paper.</p><div class="formula">E[X] = E[A] / p<br>E[X²] = (E[A²] + 2E[X]E[A · 1<sub>reset</sub>]) / p</div><p>A is the length of one retry attempt and p is its success probability; any forced prefix contributes only to the mean.</p>';
+ const one=p.model==='one';
+ return '<p>For each block, let hᵢ and vᵢ be the mean and variance needed to reach digit interface i from the input. The first digit is a deterministic path. At every subsequent interface, an advance has positive probability and resets retry earlier prefixes.</p><div class="formula">h₁ = a₁, v₁ = 0<br>hᵢ = '+(one?'3':'b')+'hᵢ₋₁ + aᵢ<br>vᵢ = '+(one?'3vᵢ₋₁ + 6hᵢ₋₁² + 6(aᵢ − 1)hᵢ₋₁ + aᵢ(aᵢ − 1)':'bvᵢ₋₁ + b(b − 1)hᵢ₋₁² + 2b(aᵢ − 1)hᵢ₋₁ + 2(aᵢ − 1)²')+'</div><p>These recurrences use arbitrary-precision integers. The regenerated glue rules and multiplicities are checked before the formulas are used.</p>';
 }
 function renderGeneratedAnalysis(){
- const p=analysis.construction,g=p.guarantee;$('analysisMethod').textContent='EXACT BLOCK MOMENTS';
+ const p=analysis.construction,g=p.guarantee;$('analysisMethod').textContent=p.revision===3?'POSITIVE-DIGIT BLOCKS':'LEGACY BLOCK MOMENTS';
  let html='<div class="analysis-inner"><div class="analysis-grid"><div class="analysis-stat"><h3>Expected total length E[L] · exact</h3><div class="exact-number">'+esc(analysis.mean)+'</div></div><div class="analysis-stat"><h3>Variance Var(L) · exact</h3><div class="exact-number">'+esc(analysis.variance)+'</div></div></div>';
- html+='<div class="analysis-facts"><span>'+names[system.model]+' model</span><span>'+formatExact(p.blocks)+' independent block'+(p.blocks==='1'?'':'s')+'</span><span>Almost-sure termination</span><span>Equimolar · seed included</span></div>';
- html+='<div class="analysis-section"><h3>Construction</h3><p>'+groupDescription(p)+' Each block has its own glue namespace. The final successful tile exposes the next block’s input interface, so joining blocks adds no tile.</p><p>Exact charged and distinct tile count, including the seed: <span class="exact-number">'+esc(p.charged)+'</span>.</p>';
- if(p.groups.length)html+='<div class="table-scroll"><table class="block-table"><thead><tr><th>Copies</th><th>Mean attachments</th><th>Types / block</th><th>Encoding</th></tr></thead><tbody>'+p.groups.map(x=>'<tr><td title="'+esc(x.count)+'">'+formatExact(x.count)+'</td><td class="exact-number">'+esc(x.mean)+'</td><td>'+esc(x.cost)+'</td><td><code>'+blockEncoding(x)+'</code></td></tr>').join('')+'</tbody></table></div>';
- html+='</div><div class="analysis-section"><h3>Exact moments and termination</h3><p>Each random block retries a finite experiment until success, with strictly positive success probability. Every block and the finite concatenation terminate almost surely. Let A be one attempt’s length, p its success probability, and X the total block length. Renewal gives:</p><div class="formula">E[X] = E[A] / p<br>E[X²] = (E[A²] + 2E[X]E[A · 1<sub>reset</sub>]) / p<br>E[L] = 1 + Σᵢ E[Xᵢ] = N<br>Var(L) = Σᵢ Var(Xᵢ)</div><p>Fixed prefix tiles add to the mean and leave the variance unchanged. Attempt moments are evaluated from the displayed digit encodings with arbitrary-precision integer arithmetic. All generated rules are verified before these formulas are used.</p></div>';
- if(g)html+='<div class="analysis-section"><h3>Probability certificate</h3><p>For ε = '+esc(p.epsilon)+' and requested δ = '+esc(p.delta)+', the rigorous upper bound on P(|L − N| &gt; εN) is:</p><div class="exact-number">'+esc(g.upper)+'</div><p>Method: '+esc(g.method)+'. '+(g.certified?'This proves the requested guarantee.':'This bound exceeds δ. It does not determine whether the actual failure probability exceeds δ.')+'</p><div class="formula">t = εN<br>P(|L − N| &gt; t) ≤ min(1, Var(L) / t²,<br>&nbsp; 2 exp[−t² / (8ΣᵢMᵢ² + 4Mₘₐₓt)])</div><p>The sum and maximum in the exponential bound omit deterministic blocks. Residual means within a random block are at most 2Mᵢ. The exponential term is rounded upward to a dyadic rational using exact integer arithmetic. Automatic mode retains a certified block count and uses a deterministic line when it costs no more; it does not claim the least possible number of blocks or tiles.</p></div>';
- html+='<div class="analysis-section"><h3>Computational scope</h3><p>'+(p.recipeOnly?'The tile list exceeds the 10,000-entry limit. System JSON stores a compact recipe, not a literal tile list. Importing it into this version reconstructs the exact statistics and certificate.':analysis.distribution?'Floating-point Markov propagation runs through length '+count(analysis.distribution.maxLength)+'. Remaining probability mass: '+probability(analysis.distribution.tail)+'.':'A full distribution is omitted at this scale. Capped literal trials and exact moments remain available.')+' Numerical probability predictions and empirical frequencies are separate from the rigorous certificate. Scientific notation and standard deviations are rounded.</p><p><a class="method-link" href="./CONSTRUCTIONS.md" target="_blank" rel="noopener">Read the construction formulas and certificate proof</a>.</p></div></div>';
+ html+='<div class="analysis-facts"><span>'+names[system.model]+' model</span><span>'+formatExact(p.blocks)+' independent block'+(p.blocks==='1'?'':'s')+'</span><span>Almost-sure termination</span><span>'+(p.equimolar?'Equimolar':'Multiplicity 1 or 2')+' · seed included</span></div>';
+ html+='<div class="analysis-section"><h3>'+(p.revision===3?'Revised construction':'Legacy imported construction')+'</h3><p>'+groupDescription(p)+' Each block has its own glue namespace. A successful final tile exposes the next block’s input interface, so joining blocks adds no tile.</p><p>Charged entries, including the seed: <span class="exact-number">'+esc(p.charged)+'</span>. Distinct tile types: <span class="exact-number">'+esc(p.distinct)+'</span>.</p>';
+ if(p.groups.length)html+='<div class="table-scroll"><table class="block-table"><thead><tr><th>Copies</th><th>Mean attachments</th><th>Charged / block</th><th>Types / block</th><th>Encoding</th></tr></thead><tbody>'+p.groups.map(x=>'<tr><td title="'+esc(x.count)+'">'+formatExact(x.count)+'</td><td class="exact-number">'+esc(x.mean)+'</td><td>'+esc(x.cost)+'</td><td>'+esc(x.distinct)+'</td><td><code>'+blockEncoding(x)+'</code></td></tr>').join('')+'</tbody></table></div>';
+ html+='</div><div class="analysis-section"><h3>Exact moments and termination</h3>'+blockMomentExplanation(p)+'<div class="formula">E[L] = 1 + Σᵢ E[Xᵢ] = N<br>Var(L) = Σᵢ Var(Xᵢ)</div><p>Private glue labels ensure independent block lengths. Every block and their finite concatenation terminate almost surely.</p></div>';
+ if(g)html+='<div class="analysis-section"><h3>Probability certificate</h3><p>For ε = '+esc(p.epsilon)+' and requested δ = '+esc(p.delta)+', the rigorous upper bound on P(|L − N| &gt; εN) is:</p><div class="exact-number">'+esc(g.upper)+'</div><p>Method: '+esc(g.method)+'. '+(g.certified?'This proves the requested guarantee.':'This bound exceeds δ. It does not determine whether the actual failure probability exceeds δ.')+'</p><div class="formula">t = εN, Hᵢ = '+(p.residualFactor===1?'Mᵢ':'2Mᵢ')+'<br>P(|L − N| &gt; t) ≤ min(1, Var(L) / t²,<br>&nbsp; 2 exp[−t² / (4ΣᵢMᵢHᵢ + 2Hₘₐₓt)])</div><p>Hᵢ bounds the expected remaining attachments at any unfinished interface in block i. '+(p.residualFactor===1?'The revised one-pad blocks use the sharper Hᵢ = Mᵢ bound from Lemma 5.':'The two-pad or legacy blocks use Hᵢ = 2Mᵢ.')+' Deterministic blocks are omitted from the exponential sum and maximum. The exponential term is rounded upward to a dyadic rational with exact arithmetic. Automatic mode retains a certified block count and uses a deterministic line when it costs no more; it does not claim the least possible number of blocks or tiles.</p></div>';
+ html+='<div class="analysis-section"><h3>Computational scope</h3><p>'+(p.recipeOnly?'The charged count exceeds the 10,000-entry limit. System JSON stores a versioned compact recipe. Importing it reconstructs the exact statistics and certificate.':analysis.distribution?'Floating-point Markov propagation runs through length '+count(analysis.distribution.maxLength)+'. Remaining probability mass: '+probability(analysis.distribution.tail)+'.':'A full distribution is omitted at this scale. Capped literal trials and exact moments remain available.')+' Numerical probability predictions and empirical frequencies are separate from the rigorous certificate. Scientific notation and standard deviations are rounded.</p><p><a class="method-link" href="./CONSTRUCTIONS.md" target="_blank" rel="noopener">Read the construction formulas and certificate proof</a>.</p></div></div>';
  $('analysisContent').innerHTML=html;
 }
 function renderDigits(){
  const box=$('digitSummary');
- if(compiled.generated){const p=planSummary(compiled.generated);box.innerHTML='<div class="summary-label">'+(p.fallback?'Deterministic fallback':p.kind==='two-pad-mean'?'Shared reset pool':'Independent block construction')+'</div><p class="digit-caption">'+groupDescription(p)+'<br>All new tile types have multiplicity 1.</p>';return;}
+ if(compiled.generated){const p=planSummary(compiled.generated);box.innerHTML='<div class="summary-label">'+(p.fallback?'Deterministic fallback':p.revision===2?'Legacy imported construction':p.model==='one'?'Positive-ternary blocks':'Positive-base-b blocks')+'</div><p class="digit-caption">'+groupDescription(p)+'<br>'+(p.equimolar?'All tile types have multiplicity 1.':'Repeated glue pairs have multiplicity 2; charged entries and distinct types differ.')+'</p>';return;}
  if(!system.construction){box.innerHTML='<p class="digit-caption">Generate a target to inspect its construction.</p>';return;}
  const n=BigInt(system.construction.target),digits=positiveTernary(n-1n);
  if(!digits.length){box.innerHTML='<div class="summary-label">Seed-only construction</div><p class="digit-caption" style="margin-top:10px">The inert seed is terminal. <strong>L = 1</strong> deterministically.</p>';return;}
@@ -139,7 +146,7 @@ function renderSample(){
   const p=planSummary(compiled.generated);$('sampleBadge').textContent='RECIPE';$('sampleBadge').classList.remove('complete');
   $('assemblySubtitle').textContent='Exact construction statistics without expanding every tile type.';
   $('currentLength').textContent='—';$('currentGlue').textContent='Not materialized';$('nextOptions').textContent='Numerical analysis only';$('stepSample').disabled=true;
-  $('numericalView').innerHTML='<h3>Compact construction recipe</h3><p>Expected total length</p><div class="numeric-main">'+formatExact(p.target)+'</div><p>The specified construction has '+formatExact(p.charged)+' tile types. Its exact moments and probability certificate are computed from its blocks, without generating the full tile list.</p><div class="numeric-details"><div>Independent blocks<strong>'+formatExact(p.blocks)+'</strong></div><div>Tile entries, including seed<strong>'+formatExact(p.charged)+'</strong></div><div>Export format<strong>System JSON recipe</strong></div></div>';
+  $('numericalView').innerHTML='<h3>Compact construction recipe</h3><p>Expected total length</p><div class="numeric-main">'+formatExact(p.target)+'</div><p>The specified construction has '+formatExact(p.charged)+' charged entries and '+formatExact(p.distinct)+' distinct tile types. Its exact moments and probability certificate are computed from its blocks, without generating the full tile list.</p><div class="numeric-details"><div>Independent blocks<strong>'+formatExact(p.blocks)+'</strong></div><div>Tile entries, including seed<strong>'+formatExact(p.charged)+'</strong></div><div>Export format<strong>System JSON recipe</strong></div></div>';
   return;
  }
  const len=sample.length,choices=compiled.choices(sample.state),terminal=sample.terminal,capped=sample.capped;
@@ -169,8 +176,8 @@ function renderSample(){
 function renderTiles(){
  if(!system)return;
  if(compiled.virtual){
-  const p=planSummary(compiled.generated);$('tileTable').innerHTML='<tr><td colspan="5" class="recipe-message">This construction contains '+formatExact(p.charged)+' tile types. Export System JSON for the compact recipe, or see Analysis for its block encodings. The full tile list exceeds the browser limit.</td></tr>';
-  $('moreTiles').hidden=true;$('tileLibrarySubtitle').textContent=names[system.model]+' · compact recipe';$('tileLibraryFoot').innerHTML='Exact count: <span class="exact-number">'+esc(p.charged)+'</span> entries, all distinct and equimolar, including the seed.';return;
+  const p=planSummary(compiled.generated);$('tileTable').innerHTML='<tr><td colspan="5" class="recipe-message">This construction contains '+formatExact(p.charged)+' charged entries and '+formatExact(p.distinct)+' distinct tile types. Export System JSON for the compact recipe, or see Analysis for its block encodings. The full tile list exceeds the browser limit.</td></tr>';
+  $('moreTiles').hidden=true;$('tileLibrarySubtitle').textContent=names[system.model]+' · compact recipe';$('tileLibraryFoot').innerHTML='Exact charged count: <span class="exact-number">'+esc(p.charged)+'</span>. Distinct types: <span class="exact-number">'+esc(p.distinct)+'</span>. Both include the seed.';return;
  }
  const rows=[{id:'Seed',west:system.model==='two'?'⊥ | ⊥':'⊥',east:system.seed,multiplicity:1,role:'seed'},...system.tiles.slice(0,tileLimit)];
  $('tileTable').innerHTML=rows.map(t=>'<tr><td><div class="tile-cell"><span class="tile-swatch '+(t.role==='seed'?'is-seed':t.role)+'"></span><span>'+esc(t.id)+'</span></div></td><td><code>'+esc(t.west.replaceAll('|',' | '))+'</code></td><td><code>'+esc(t.east.replaceAll('|',' | '))+'</code></td><td>'+count(t.multiplicity)+'</td><td><span class="role-label">'+(roles[t.role]||'Custom')+'</span></td></tr>').join('');
@@ -203,7 +210,7 @@ function renderAnalysis(){
 function runBatch(){
  if(batchWorker||compiled.virtual)return;const trials=Number($('trials').value),cap=Number($('stepCap').value),seed=$('rngSeed').value||'42';save();
  $('runBtn').disabled=true;$('runBtn').innerHTML=iconSpan('activity')+'Running…';$('cancelBtn').hidden=false;$('runProgress').hidden=false;$('runProgress').firstElementChild.style.width='0%';$('runHelp').textContent='Starting '+count(trials)+' trials…';
- batchWorker=new Worker('./worker.js?v=2',{type:'module'});const gen=generation;
+ batchWorker=new Worker('./worker.js?v=3',{type:'module'});const gen=generation;
  batchWorker.onmessage=({data})=>{
   if(gen!==generation)return;
   if(data.kind==='progress'){$('runProgress').firstElementChild.style.width=(100*data.completed/data.requested)+'%';$('runHelp').textContent=count(data.completed)+' / '+count(data.requested)+' trials processed';return;}
@@ -290,7 +297,7 @@ $('generateBtn').onclick=()=>{
  const fail=e=>{generationButton(false);$('targetError').hidden=false;$('targetError').textContent=e.message||e;};
  const kind=$('constructionKind').value;
  if(kind==='positive-ternary'){try{applySystem(generateSystem($('target').value),'generate');tab('overview');toast('One-pad expected-length system generated.');}catch(e){fail(e);}return;}
- generationButton(true);const w=constructionWorker=new Worker('./worker.js?v=2',{type:'module'});
+ generationButton(true);const w=constructionWorker=new Worker('./worker.js?v=3',{type:'module'});
  w.onmessage=({data})=>{if(w!==constructionWorker)return;w.terminate();constructionWorker=null;generationButton(false);if(data.kind==='error'){fail(data.message);return;}try{applySystem(data.system,'generate');tab('overview');toast(compiled.virtual?'Compact construction and exact analysis ready.':'Construction generated with exact expected length.');}catch(e){fail(e);}};
  w.onerror=()=>{w.terminate();constructionWorker=null;fail('The construction worker could not start. Reload and try again.');};
  w.postMessage({action:'generate',target:$('target').value,options:{kind,base:$('constructionBase').value.trim().toLowerCase(),epsilon:$('constructionEpsilon').value,delta:$('constructionDelta').value,blocks:$('constructionBlocks').value.trim().toLowerCase()}});
@@ -338,4 +345,8 @@ let resizeTimeout;window.addEventListener('resize',()=>{clearTimeout(resizeTimeo
 let initialSettings=null;try{initialSettings=JSON.parse(localStorage.getItem('linear-assembly-lab-v1')||'null');}catch{}
 let initial=generateSystem('100');
 if(initialSettings?.system){try{initial=normalizeSystem(initialSettings.system);if(initialSettings.target)$('target').value=initialSettings.target;for(const [key,id] of [['seed','rngSeed'],['trials','trials'],['cap','stepCap'],['epsilon','epsilon']])if(initialSettings[key]!==undefined)$(id).value=initialSettings[key];$('epsilonValue').textContent='±'+$('epsilon').value+'%';}catch{initialSettings=null;}}
-try{applySystem(initial,initialSettings?.sourceMode||'generate',true);}catch{applySystem(generateSystem('100'),'generate',true);toast('The saved system was invalid; restored the default example.');}
+try{
+ const upgrade=initialSettings?.sourceMode==='generate'&&NEW_KINDS.includes(initial.construction?.kind)&&(initial.construction.revision??2)===2;
+ applySystem(initial,initialSettings?.sourceMode||'generate',!upgrade);
+ if(upgrade&&compiled.generated)$('generateBtn').click();
+}catch{applySystem(generateSystem('100'),'generate',true);toast('The saved system was invalid; restored the default example.');}
